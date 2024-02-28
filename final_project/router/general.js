@@ -1,43 +1,70 @@
 const express = require('express');
+const jwt = require('jsonwebtoken');
 let books = require("./booksdb.js");
-let isValid = require("./auth_users.js").isValid;
-let users = require("./auth_users.js").users;
-const public_users = express.Router();
+const regd_users = express.Router();
 
+let users = [];
 
-public_users.post("/register", (req,res) => {
-  //Write your code here
-  return res.status(300).json({message: "Yet to be implemented"});
+const isValid = (username)=>{ 
+  //returns boolean
+  const userMatches = users.filter((user) => user.username === username);
+  return userMatches.length > 0;
+}
+
+const authenticatedUser = (username,password)=>{ 
+  //returns boolean
+  //write code to check if username and password match the one we have in records.
+  const matchingUsers = users.filter((user) => user.username === username && user.password === password);
+  return matchingUsers.length > 0;
+}
+
+//  Task 7
+//  Only registered users can login
+regd_users.post("/login", (req,res) => {
+  const username = req.body.username;
+  const password = req.body.password;
+
+  if (authenticatedUser(username, password)) {
+    let accessToken = jwt.sign({data:password}, "access", {expiresIn: 3600});
+    req.session.authorization = {accessToken,username};
+    return res.status(200).send("User successfully logged in");
+  }
+  else {
+    return res.status(208).json({message: "Invalid username or password"});
+  }
 });
 
-// Get the book list available in the shop
-public_users.get('/',function (req, res) {
-  //Write your code here
-  return res.status(300).json({message: "Yet to be implemented"});
+//  Task 8
+//  Add a book review
+regd_users.put("/auth/review/:isbn", (req, res) => {
+  const isbn = req.params.isbn;
+  const review = req.body.review;
+  const username = req.session.authorization.username;
+  if (books[isbn]) {
+    let book = books[isbn];
+    book.reviews[username] = review;
+    return res.status(200).send("Review successfully posted");
+  }
+  else {
+      return res.status(404).json({message: `ISBN ${isbn} not found`});
+  }
 });
 
-// Get book details based on ISBN
-public_users.get('/isbn/:isbn',function (req, res) {
-  //Write your code here
-  return res.status(300).json({message: "Yet to be implemented"});
- });
-  
-// Get book details based on author
-public_users.get('/author/:author',function (req, res) {
-  //Write your code here
-  return res.status(300).json({message: "Yet to be implemented"});
+//  Task 9
+//  Delete a book review
+regd_users.delete("/auth/review/:isbn", (req, res) => {
+  const isbn = req.params.isbn;
+  const username = req.session.authorization.username;
+  if (books[isbn]) {
+    let book = books[isbn];
+    delete book.reviews[username];
+    return res.status(200).send("Review successfully deleted");
+  }
+  else {
+    return res.status(404).json({message: `ISBN ${isbn} not found`});
+  }
 });
 
-// Get all books based on title
-public_users.get('/title/:title',function (req, res) {
-  //Write your code here
-  return res.status(300).json({message: "Yet to be implemented"});
-});
-
-//  Get book review
-public_users.get('/review/:isbn',function (req, res) {
-  //Write your code here
-  return res.status(300).json({message: "Yet to be implemented"});
-});
-
-module.exports.general = public_users;
+module.exports.authenticated = regd_users;
+module.exports.isValid = isValid;
+module.exports.users = users;
